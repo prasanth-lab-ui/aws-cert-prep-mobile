@@ -4,16 +4,10 @@ apply plugin: "com.facebook.react"
 
 /**
  * react.gradle config — controls Hermes, bundling, asset paths.
+ * Autolinking is handled by `autolinkLibrariesFromCommand()` in settings.gradle
+ * (RN 0.73+), so no native_modules.gradle apply is needed here.
  */
 react {
-    // root = file("../../")
-    // reactNativeDir = file("../../node_modules/react-native")
-    // codegenDir = file("../../node_modules/@react-native/codegen")
-    // cliFile = file("../../node_modules/react-native/cli.js")
-    // bundleAssetName = "index.android.bundle"
-    // entryFile = file("../../index.js")
-    // bundleConfig = ""
-    // hermesCommand = "$rootDir/sdks/hermesc/%OS-BIN%/hermesc"
     autolinkLibrariesWithApp()
 }
 
@@ -38,7 +32,6 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
-        missingDimensionStrategy 'react-native-camera', 'general'
     }
 
     signingConfigs {
@@ -80,5 +73,3 @@ dependencies {
         implementation jscFlavor
     }
 }
-
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

@@ -1,240 +1,136 @@
-import React, {useState} from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useEffect, useState} from 'react';
+import {Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Feather';
-import {useAuth} from '../../context/AuthContext';
-import {Colors} from '../../theme/colors';
 import {AuthStackParamList} from '../../App';
+import {useAuth} from '../../context/AuthContext';
+import {Button} from '../../components/Button';
+import {TextField} from '../../components/TextField';
+import {ScreenContainer} from '../../components/ScreenContainer';
+import {Colors} from '../../theme/colors';
+import {Spacing} from '../../theme/spacing';
+import {Typography} from '../../theme/typography';
+import {configureGoogleSignIn} from '../../services/google';
+import {extractErrorMessage} from '../../services/api';
 
-type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
-export default function LoginScreen() {
-  const navigation = useNavigation<NavProp>();
-  const {login} = useAuth();
+const LoginScreen = ({navigation}: Props) => {
+  const {login, googleSignIn} = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
-  const handleLogin = async () => {
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
+  const onLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      Alert.alert('Missing info', 'Email and password are required.');
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     try {
-      await login(email.trim().toLowerCase(), password);
-      // Navigation handled by RootNavigator (user state changes)
+      await login(email.trim(), password);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Login failed. Check credentials.';
-      Alert.alert('Login Failed', msg);
+      Alert.alert('Login failed', extractErrorMessage(err, 'Invalid credentials'));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setGoogleBusy(true);
+    try {
+      await googleSignIn();
+    } catch (err: any) {
+      Alert.alert('Google sign-in failed', extractErrorMessage(err, 'Please try again.'));
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={{flex: 1}}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled">
-          {/* Logo / Brand */}
-          <View style={styles.brandRow}>
-            <View style={styles.logoBox}>
-              <Text style={styles.logoText}>AWS</Text>
-            </View>
-            <Text style={styles.brandTitle}>Cert Prep</Text>
+    <ScreenContainer padded={false}>
+      <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.brand}>
+            <Icon name="cloud" size={36} color={Colors.primary} />
+            <Text style={styles.title}>AWS Cert Prep</Text>
+            <Text style={styles.subtitle}>Sign in to keep practicing</Text>
           </View>
 
-          <Text style={styles.heading}>Welcome back</Text>
-          <Text style={styles.subheading}>Sign in to continue your exam prep</Text>
+          <TextField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholder="you@example.com"
+          />
+          <TextField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="••••••••"
+          />
 
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrap}>
-              <Icon name="mail" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-          </View>
-
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrap}>
-              <Icon name="lock" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, {flex: 1}]}
-                placeholder="Enter password"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPass}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-                <Icon name={showPass ? 'eye-off' : 'eye'} size={18} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Forgot password */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.forgotBtn}>
+          <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot}>
             <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text style={styles.btnText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
+          <Button title="Log in" onPress={onLogin} loading={submitting} />
 
-          {/* Register */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable onPress={onGoogle} disabled={googleBusy} style={({pressed}) => [styles.googleBtn, pressed && {opacity: 0.85}, googleBusy && {opacity: 0.6}]}>
+            <Icon name="chrome" size={20} color={Colors.google} />
+            <Text style={styles.googleText}>{googleBusy ? 'Connecting…' : 'Continue with Google'}</Text>
+          </Pressable>
+
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.footerLink}>Sign up</Text>
-            </TouchableOpacity>
+            <Text style={styles.footerText}>New here?</Text>
+            <Pressable onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.footerLink}> Create an account</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
-}
+};
+
+export default LoginScreen;
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: Colors.background},
-  container: {
-    flexGrow: 1,
-    padding: 24,
+  scroll: {padding: Spacing.lg, paddingTop: Spacing.xxl, flexGrow: 1, justifyContent: 'center'},
+  brand: {alignItems: 'center', marginBottom: Spacing.xl},
+  title: {...Typography.h1, color: Colors.text, marginTop: Spacing.sm},
+  subtitle: {...Typography.body, color: Colors.textMuted, marginTop: 4},
+  forgot: {alignSelf: 'flex-end', marginBottom: Spacing.md},
+  forgotText: {color: Colors.primary, fontWeight: '600'},
+  divider: {flexDirection: 'row', alignItems: 'center', marginVertical: Spacing.lg},
+  dividerLine: {flex: 1, height: 1, backgroundColor: Colors.border},
+  dividerText: {marginHorizontal: Spacing.md, color: Colors.textMuted, fontSize: 12, textTransform: 'uppercase'},
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 32,
-    alignSelf: 'center',
-  },
-  logoBox: {
-    backgroundColor: Colors.awsOrange,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  logoText: {
-    color: Colors.white,
-    fontWeight: '900',
-    fontSize: 18,
-    letterSpacing: 1,
-  },
-  brandTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-  },
-  heading: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    marginBottom: 6,
-  },
-  subheading: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 28,
-  },
-  inputGroup: {marginBottom: 16},
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
+    minHeight: 48,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
+    backgroundColor: Colors.surface,
+    gap: 10,
   },
-  inputIcon: {marginRight: 10},
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    height: '100%',
-  },
-  eyeBtn: {padding: 4},
-  forgotBtn: {alignSelf: 'flex-end', marginBottom: 24},
-  forgotText: {
-    fontSize: 13,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  btnDisabled: {opacity: 0.7},
-  btnText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  footerText: {fontSize: 14, color: Colors.textSecondary},
-  footerLink: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '700',
-  },
+  googleText: {marginLeft: 10, fontWeight: '600', color: Colors.text},
+  footer: {flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.xl},
+  footerText: {color: Colors.textMuted},
+  footerLink: {color: Colors.primary, fontWeight: '700'},
 });

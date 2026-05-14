@@ -1,6 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Config from 'react-native-config';
+import {Config} from '../config';
 
 export const TOKEN_KEY = '@auth_token';
 

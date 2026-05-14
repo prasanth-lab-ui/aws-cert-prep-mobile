@@ -1,12 +1,12 @@
 import {GoogleSignin, statusCodes} from '@react-native-google-signin/google-signin';
-import Config from 'react-native-config';
+import {Config} from '../config';
 
 let configured = false;
 
 export const configureGoogleSignIn = () => {
   if (configured) return;
   GoogleSignin.configure({
-    webClientId: Config.GOOGLE_WEB_CLIENT_ID || '',
+    webClientId: Config.GOOGLE_WEB_CLIENT_ID,
     offlineAccess: false,
     scopes: ['email', 'profile'],
   });
@@ -15,6 +15,9 @@ export const configureGoogleSignIn = () => {
 
 export const getGoogleIdToken = async (): Promise<string> => {
   configureGoogleSignIn();
+  if (!Config.GOOGLE_WEB_CLIENT_ID) {
+    throw new Error('GOOGLE_WEB_CLIENT_ID is not set. Edit src/config.ts (or set the secret in CI).');
+  }
   await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
   const userInfo = await GoogleSignin.signIn();
   // RN GSI v11 returns the idToken inside userInfo.data; older versions placed it at the top level.

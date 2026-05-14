@@ -1,185 +1,132 @@
-import React, {useState} from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useEffect, useState} from 'react';
+import {Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Feather';
-import {useAuth} from '../../context/AuthContext';
-import {Colors} from '../../theme/colors';
 import {AuthStackParamList} from '../../App';
+import {useAuth} from '../../context/AuthContext';
+import {Button} from '../../components/Button';
+import {TextField} from '../../components/TextField';
+import {ScreenContainer} from '../../components/ScreenContainer';
+import {Colors} from '../../theme/colors';
+import {Spacing} from '../../theme/spacing';
+import {Typography} from '../../theme/typography';
+import {configureGoogleSignIn} from '../../services/google';
+import {extractErrorMessage} from '../../services/api';
 
-type NavProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-export default function RegisterScreen() {
-  const navigation = useNavigation<NavProp>();
-  const {register} = useAuth();
+const RegisterScreen = ({navigation}: Props) => {
+  const {register, googleSignIn} = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
-  const handleRegister = async () => {
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
+
+  const onSubmit = async () => {
     if (!name || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Missing info', 'Name, email and password are required.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
-    setLoading(true);
+    if (password !== confirm) {
+      Alert.alert('Passwords do not match');
+      return;
+    }
+    setSubmitting(true);
     try {
-      await register(name.trim(), email.trim().toLowerCase(), password);
-      navigation.navigate('VerifyEmail', {email: email.trim().toLowerCase()});
+      const {email: registeredEmail} = await register(name.trim(), email.trim(), password);
+      navigation.navigate('VerifyEmail', {email: registeredEmail});
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Registration failed.';
-      Alert.alert('Register Failed', msg);
+      Alert.alert('Registration failed', extractErrorMessage(err));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setGoogleBusy(true);
+    try {
+      await googleSignIn();
+    } catch (err: any) {
+      Alert.alert('Google sign-in failed', extractErrorMessage(err));
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={{flex: 1}}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Icon name="arrow-left" size={22} color={Colors.textSecondary} />
-          </TouchableOpacity>
+    <ScreenContainer padded={false}>
+      <KeyboardAvoidingView style={{flex: 1}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Pressable onPress={() => navigation.goBack()} style={styles.back} hitSlop={12}>
+            <Icon name="arrow-left" size={22} color={Colors.text} />
+          </Pressable>
 
-          <Text style={styles.heading}>Create account</Text>
-          <Text style={styles.subheading}>Start your AWS certification journey</Text>
+          <Text style={styles.title}>Create your account</Text>
+          <Text style={styles.subtitle}>One tap with Google, or sign up with email.</Text>
 
-          {/* Name */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.inputWrap}>
-              <Icon name="user" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="John Doe"
-                placeholderTextColor={Colors.textMuted}
-                value={name}
-                onChangeText={setName}
-                autoCorrect={false}
-              />
-            </View>
+          <Pressable onPress={onGoogle} disabled={googleBusy} style={({pressed}) => [styles.googleBtn, pressed && {opacity: 0.85}, googleBusy && {opacity: 0.6}]}>
+            <Icon name="chrome" size={20} color={Colors.google} />
+            <Text style={styles.googleText}>{googleBusy ? 'Connecting…' : 'Register with Gmail'}</Text>
+          </Pressable>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
           </View>
 
-          {/* Email */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrap}>
-              <Icon name="mail" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="you@example.com"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-          </View>
+          <TextField label="Full name" value={name} onChangeText={setName} placeholder="Jane Doe" autoCapitalize="words" />
+          <TextField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com" />
+          <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 6 characters" />
+          <TextField label="Confirm password" value={confirm} onChangeText={setConfirm} secureTextEntry placeholder="Repeat password" />
 
-          {/* Password */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrap}>
-              <Icon name="lock" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, {flex: 1}]}
-                placeholder="Min 6 characters"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPass}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-                <Icon name={showPass ? 'eye-off' : 'eye'} size={18} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
-            onPress={handleRegister}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text style={styles.btnText}>Create Account</Text>
-            )}
-          </TouchableOpacity>
+          <Button title="Create account" onPress={onSubmit} loading={submitting} />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.footerLink}>Sign in</Text>
-            </TouchableOpacity>
+            <Text style={styles.footerText}>Already have an account?</Text>
+            <Pressable onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.footerLink}> Log in</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
-}
+};
+
+export default RegisterScreen;
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: Colors.background},
-  container: {flexGrow: 1, padding: 24, paddingTop: 16},
-  backBtn: {marginBottom: 24, alignSelf: 'flex-start', padding: 4},
-  heading: {fontSize: 26, fontWeight: '800', color: Colors.textPrimary, marginBottom: 6},
-  subheading: {fontSize: 14, color: Colors.textSecondary, marginBottom: 28},
-  inputGroup: {marginBottom: 16},
-  label: {fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6},
-  inputWrap: {
+  scroll: {padding: Spacing.lg, paddingTop: Spacing.xl, flexGrow: 1},
+  back: {marginBottom: Spacing.md},
+  title: {...Typography.h1, color: Colors.text},
+  subtitle: {...Typography.body, color: Colors.textMuted, marginBottom: Spacing.lg},
+  googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    minHeight: 48,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
+    backgroundColor: Colors.surface,
+    marginBottom: Spacing.md,
   },
-  inputIcon: {marginRight: 10},
-  input: {flex: 1, fontSize: 15, color: Colors.textPrimary},
-  eyeBtn: {padding: 4},
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  btnDisabled: {opacity: 0.7},
-  btnText: {color: Colors.white, fontSize: 16, fontWeight: '700'},
-  footer: {flexDirection: 'row', justifyContent: 'center', marginTop: 24},
-  footerText: {fontSize: 14, color: Colors.textSecondary},
-  footerLink: {fontSize: 14, color: Colors.primary, fontWeight: '700'},
+  googleText: {marginLeft: 10, fontWeight: '600', color: Colors.text},
+  divider: {flexDirection: 'row', alignItems: 'center', marginVertical: Spacing.md},
+  dividerLine: {flex: 1, height: 1, backgroundColor: Colors.border},
+  dividerText: {marginHorizontal: Spacing.sm, color: Colors.textMuted, fontSize: 11, textTransform: 'uppercase'},
+  footer: {flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg},
+  footerText: {color: Colors.textMuted},
+  footerLink: {color: Colors.primary, fontWeight: '700'},
 });

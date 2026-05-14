@@ -1,39 +1,41 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Config from 'react-native-config';
 
-// ⚠️ UPDATE THIS to your backend URL
-// Emulator: http://10.0.2.2:5000/api
-// Physical device: http://<YOUR_LOCAL_IP>:5000/api
-// Production: https://your-domain.com/api
-const BASE_URL = 'http://10.0.2.2:5000/api';
+export const TOKEN_KEY = '@auth_token';
 
-const api = axios.create({
-  baseURL: BASE_URL,
-  headers: {'Content-Type': 'application/json'},
+const baseURL = Config.API_BASE_URL || 'http://10.0.2.2:5000/api';
+
+export const api = axios.create({
+  baseURL,
   timeout: 15000,
+  headers: {'Content-Type': 'application/json'},
 });
 
-// Request interceptor — attach JWT token
-api.interceptors.request.use(
-  async config => {
-    const token = await AsyncStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => Promise.reject(error),
-);
+api.interceptors.request.use(async config => {
+  const token = await AsyncStorage.getItem(TOKEN_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Response interceptor — handle 401
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (handler: () => void) => {
+  onUnauthorized = handler;
+};
+
 api.interceptors.response.use(
-  response => response,
+  res => res,
   async error => {
     if (error.response?.status === 401) {
-      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      onUnauthorized?.();
     }
     return Promise.reject(error);
   },
 );
 
-export default api;
+export const extractErrorMessage = (err: any, fallback = 'Something went wrong'): string => {
+  return err?.response?.data?.message || err?.message || fallback;
+};

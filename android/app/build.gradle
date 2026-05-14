@@ -11,12 +11,6 @@ react {
     autolinkLibrariesWithApp()
 }
 
-project.ext.envConfigFiles = [
-    debug: ".env",
-    release: ".env",
-]
-apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
-
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+'
 

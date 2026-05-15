@@ -2,13 +2,9 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-/**
- * react.gradle config — controls Hermes, bundling, asset paths.
- * Autolinking is handled by `autolinkLibrariesFromCommand()` in settings.gradle
- * (RN 0.73+), so no native_modules.gradle apply is needed here.
- */
 react {
-    autolinkLibrariesWithApp()
+    // RN 0.73 ReactExtension — defaults are fine; autolinking is wired via
+    // `applyNativeModulesAppBuildGradle(project)` at the bottom of this file.
 }
 
 def enableProguardInReleaseBuilds = false
@@ -67,3 +63,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
